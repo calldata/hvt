@@ -11,6 +11,9 @@ import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-waffle";
+import "hardhat-deploy";
+import "hardhat-deploy-ethers";
+
 
 import "hardhat-gas-reporter";
 import "@nomiclabs/hardhat-etherscan";
@@ -96,6 +99,11 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: ETHERSCAN_API_KEY,
+  },
+  namedAccounts: {
+    deployer: {
+      default: 0,
+    },
   },
   gasReporter: {
     currency: "USD",

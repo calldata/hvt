@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { ethers, getNamedAccounts } from "hardhat";
 import chai from "chai";
 import { solidity } from "ethereum-waffle";
 import { TestToken__factory } from "../typechain";
