@@ -78,7 +78,7 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: "0.8.3",
+        version: "0.8.4",
         settings: {
           optimizer: {
             enabled: true,
@@ -105,6 +105,9 @@ const config: HardhatUserConfig = {
     outDir: "typechain",
     target: "ethers-v5",
   },
+  mocha: {
+    timeout: 200000
+  }
 };
 
 export default config;

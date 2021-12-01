@@ -37,6 +37,7 @@
     "yarn-upgrade-all": "^0.5.4"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.2.0"
+    "@openzeppelin/contracts": "^4.2.0",
+    "prb-math": "^2.4.1"
   }
 }
