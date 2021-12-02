@@ -21,8 +21,10 @@ describe("Hvt", () => {
 
   describe("hvt valut", () => {
     it("test deposit", async () => {
+      const [deployer] = await ethers.getSigners();
+
       await tokenContract.approve(hvtContract.address, ethers.BigNumber.from(10).pow(18).mul(1000));
-      await hvtContract.deposit(ethers.BigNumber.from(10).pow(18).mul(1000));
+      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(18).mul(1000));
       expect(await tokenContract.balanceOf(hvtContract.address)).to.eq(ethers.BigNumber.from(10).pow(18).mul(1000));
     })
 
@@ -30,7 +32,7 @@ describe("Hvt", () => {
       const [deployer] = await ethers.getSigners();
 
       await tokenContract.approve(hvtContract.address, ethers.BigNumber.from(10).pow(18).mul(1000));
-      await hvtContract.deposit(ethers.BigNumber.from(10).pow(18).mul(1000));
+      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(18).mul(1000));
 
       let w = await hvtContract.withrawable(deployer.address)
       console.log("wwwwwww111: ", w.toString());
@@ -47,7 +49,7 @@ describe("Hvt", () => {
       const bal1 = await tokenContract.balanceOf(deployer.address);
 
       await tokenContract.approve(hvtContract.address, ethers.BigNumber.from(10).pow(18).mul(1000));
-      await hvtContract.deposit(ethers.BigNumber.from(10).pow(18).mul(1000));
+      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(18).mul(1000));
 
       let w = await hvtContract.withrawable(deployer.address)
       console.log("wwwwwww111: ", w.toString());
@@ -79,7 +81,7 @@ describe("Hvt", () => {
       const [deployer] = await ethers.getSigners();
 
       await tokenContract.approve(hvtContract.address, ethers.BigNumber.from(10).pow(18).mul(2000));
-      await hvtContract.deposit(ethers.BigNumber.from(10).pow(18).mul(1000));
+      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(18).mul(1000));
 
       for (let i = 0; i < 300; i++) {
         await ethers.provider.send("evm_mine", []);
@@ -89,7 +91,7 @@ describe("Hvt", () => {
 
       console.log("w1: ", w.toString());
 
-      await hvtContract.deposit(ethers.BigNumber.from(10).pow(18).mul(1000));
+      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(18).mul(1000));
       w = await hvtContract.withrawable(deployer.address);
       console.log("w2: ", w.toString());
 

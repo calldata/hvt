@@ -45,9 +45,7 @@ contract HVTVault is Ownable {
         revert("Not implement");
     }
 
-    function deposit(uint256 amount) external {
-        address user = msg.sender;
-
+    function deposit(address user, uint256 amount) external onlyOwner {
         if (balance[user] > 0) {
             balance[user] += amount;
 
