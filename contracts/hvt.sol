@@ -15,7 +15,7 @@ contract HVTVault is Ownable {
     using SafeCast for int256;
 
     // 24 * 60 * 60 / 13 = 6646
-    uint256 public constant BLOCKS_PER_DAY = 6646;
+    uint256 public constant BLOCKS_PER_DAY = 100;
 
     struct ReleaseSched {
         int256 startRatio;
@@ -47,9 +47,8 @@ contract HVTVault is Ownable {
 
     function deposit(address user, uint256 amount) external onlyOwner {
         if (balance[user] > 0) {
+            _harvest(user);
             balance[user] += amount;
-
-            harvest();
 
             ReleaseStatus storage status = releaseStatus[user];
             status.startAmount = balance[user];
@@ -62,7 +61,7 @@ contract HVTVault is Ownable {
             releaseStatus[user] = ReleaseStatus(block.number, amount, 0, 0);
         }
 
-        SafeERC20.safeTransferFrom(tokenAddr, user, address(this), amount);
+        SafeERC20.safeTransferFrom(tokenAddr, msg.sender, address(this), amount);
     }
 
     function withrawable(address addr) public view returns (int256) {
@@ -81,16 +80,7 @@ contract HVTVault is Ownable {
     }
 
     function harvest() public {
-        address user = msg.sender;
-        ReleaseStatus storage status = releaseStatus[user];
-
-        int256 w = withrawable(user);
-        balance[user] -= w.toUint256();
-
-        status.releasedAmount += w.toUint256();
-        status.totalReleased += w.toUint256();
-
-        SafeERC20.safeTransfer(tokenAddr, user, w.toUint256());
+        _harvest(msg.sender);
     }
 
     function totalReleased(address addr) external view returns (uint256) {
@@ -107,5 +97,17 @@ contract HVTVault is Ownable {
 
     function elapsedDays(uint256 blockNumber) view internal returns (uint256) {
         return (block.number - blockNumber) / BLOCKS_PER_DAY;
+    }
+
+    function _harvest(address user) internal {
+        ReleaseStatus storage status = releaseStatus[user];
+
+        int256 w = withrawable(user);
+        balance[user] -= w.toUint256();
+
+        status.releasedAmount += w.toUint256();
+        status.totalReleased += w.toUint256();
+
+        SafeERC20.safeTransfer(tokenAddr, user, w.toUint256());
     }
 }
