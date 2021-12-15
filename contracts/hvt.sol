@@ -9,105 +9,130 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import "prb-math/contracts/PRBMathSD59x18.sol";
 
+import "hardhat/console.sol";
+
 contract HVTVault is Ownable {
     using PRBMathSD59x18 for int256;
     using SafeCast for uint256;
     using SafeCast for int256;
 
     // 24 * 60 * 60 / 13 = 6646
-    uint256 public constant BLOCKS_PER_DAY = 100;
-
-    struct ReleaseSched {
-        int256 startRatio;
-        int256 releaseRatio;
-    }
-
-    struct ReleaseStatus {
-        uint256 startBlock;
-        uint256 startAmount;
-        uint256 releasedAmount;
-        uint256 totalReleased;
-    }
-
-    mapping(address => ReleaseSched) releaseSched;
-
-    mapping(address => uint256) balance;
-
-    mapping(address => ReleaseStatus) releaseStatus;
+    uint256 public constant BLOCKS_PER_DAY = 6646;
 
     IERC20 public tokenAddr;
+
+    struct Deposit {
+        // 充值的数量
+        uint256 amount;
+        // 充值时的区块号
+        uint256 blockNo;
+    }
+
+    // 每个用户的充值记录
+    mapping(address => Deposit[]) depositRecord;
+
+    // 用户已经取走的
+    mapping(address => uint256) withdrawn;
+
+    uint256 public constant RATIO = 5e15;
+
+    uint256 public constant DECAY = 997e15;
+
+    mapping(address => uint256) totalDeposit;
 
     constructor(IERC20 addr) {
         tokenAddr = addr;
     }
 
-    function setReleaseSched(uint256 initialAmount, uint256 ratio) external onlyOwner {
-        revert("Not implement");
+    // 获取用户已经取走的数量
+    function getUserWithrawn(address user) public view returns (uint256) {
+        return withdrawn[user];
     }
 
-    function deposit(address user, uint256 amount) external onlyOwner {
-        if (balance[user] > 0) {
-            _harvest(user);
-            balance[user] += amount;
-
-            ReleaseStatus storage status = releaseStatus[user];
-            status.startAmount = balance[user];
-            status.startBlock = block.number;
-            status.releasedAmount = 0;
-        } else {
-            balance[user] = amount;
-            // default 0.5% and 99.7%
-            releaseSched[user] = ReleaseSched(5 * 10 ** 15, 997 * 10 ** 15);
-            releaseStatus[user] = ReleaseStatus(block.number, amount, 0, 0);
+    // 当前已经释放的总量
+    function totalReleased(address user) public view returns (uint256) {
+        Deposit[] memory deposit = depositRecord[user];
+        if (deposit.length == 0) {
+            return 0;
         }
 
-        SafeERC20.safeTransferFrom(tokenAddr, msg.sender, address(this), amount);
+        uint256 release = 0;
+        uint256 totalEpochs = 1;
+        uint256 totalAmount = 0;
+
+        // 两次存款之间应该释放的总量
+        for (uint256 i = 1; i < deposit.length; i++) {
+            totalEpochs += (deposit[i].blockNo - deposit[i - 1].blockNo) / BLOCKS_PER_DAY;
+            totalAmount += deposit[i - 1].amount;
+            release += getDepositRelease(deposit[i - 1].blockNo, deposit[i].blockNo, totalAmount, totalEpochs);
+            totalAmount -= release;
+        }
+
+        // 最后一次存款
+        totalEpochs += (block.number - deposit[deposit.length - 1].blockNo) / BLOCKS_PER_DAY;
+        totalAmount += deposit[deposit.length - 1].amount;
+        release += getDepositRelease(deposit[deposit.length - 1].blockNo, block.number, totalAmount, totalEpochs);
+        totalAmount -= release;
+
+        // 一个释放周期内可领取数量
+        uint256 deltaBlocks = (block.number - deposit[0].blockNo) % BLOCKS_PER_DAY;
+        uint256 d = DECAY.toInt256().powu(totalEpochs - 1).toUint256();
+        uint256 ratio = RATIO * d / wad();
+        uint256 amount = totalAmount * ratio / wad();
+
+        return release + amount / BLOCKS_PER_DAY * deltaBlocks;
     }
 
-    function withrawable(address addr) public view returns (int256) {
-        ReleaseSched memory sched = releaseSched[addr];
-        ReleaseStatus memory status = releaseStatus[addr];
+    // 还未释放的数量
+    function unReleased(address user) public view returns (uint256) {
+        Deposit[] memory deposit = depositRecord[user];
+        uint256 total = 0;
 
-        uint256 n = elapsedDays(status.startBlock);
-        int256 a1 = status.startAmount.toInt256() * sched.startRatio / wad();
-        int256 q = sched.releaseRatio;
-        int256 qn = q.powu(n);
-        int256 sn = a1 * (wad() - qn) / (wad() - q);
-        int256 an_puls_1 = a1 * qn / wad();
-        uint256 ratio = (block.number - status.startBlock - n * BLOCKS_PER_DAY) * wad().toUint256() / BLOCKS_PER_DAY;
-        int256 frac = ratio.toInt256() * an_puls_1 / wad();
-        return sn + frac - status.releasedAmount.toInt256();
+        for (uint256 i = 0; i < deposit.length; i++) {
+            total += deposit[i].amount;
+        }
+
+        return total - totalReleased(user);
     }
 
-    function harvest() public {
-        _harvest(msg.sender);
+    // 已经释放，但是用户还未领取的数量
+    function unWithdraw(address user) public view returns (uint256) {
+        return totalReleased(user) - withdrawn[user];
     }
 
-    function totalReleased(address addr) external view returns (uint256) {
-        return releaseStatus[addr].totalReleased;   
+    // 两笔存款间隔之间可以释放的数量
+    function getDepositRelease(uint256 startBlock, uint256 endBlock, uint256 startAmount, uint256 totalEpochs) internal pure returns (uint256) {
+        uint256 epochs = (endBlock - startBlock) / BLOCKS_PER_DAY;
+
+        uint256 d = DECAY.toInt256().powu(totalEpochs - 1).toUint256();
+        uint256 ratio = RATIO * d / wad();
+        
+        uint256 release = 0;
+
+        for (uint256 i = 0; i < epochs; i++) {
+            release += startAmount * ratio / wad();
+            startAmount = startAmount - startAmount * ratio / wad();
+            ratio *= DECAY;
+        }
+
+        return release;
     }
 
-    function unReleased(address addr) external view returns (uint256) {
-        return balance[addr];
+    // 管理员给用户充值
+    function deposit(address user, uint256 amount) external onlyOwner {
+        depositRecord[user].push(Deposit(amount, block.number));
+        totalDeposit[user] += amount;
     }
 
-    function wad() internal pure returns (int256) {
+    function withdraw(uint256 amount) external {
+        uint256 withdraw = withdrawn[msg.sender];
+        require(withdraw + amount <= totalReleased(msg.sender));
+
+        withdrawn[msg.sender] += amount;
+        SafeERC20.safeTransferFrom(tokenAddr, address(this), msg.sender, amount);
+    }
+
+    function wad() internal pure returns (uint256) {
         return 10 ** 18;
-    }
-
-    function elapsedDays(uint256 blockNumber) view internal returns (uint256) {
-        return (block.number - blockNumber) / BLOCKS_PER_DAY;
-    }
-
-    function _harvest(address user) internal {
-        ReleaseStatus storage status = releaseStatus[user];
-
-        int256 w = withrawable(user);
-        balance[user] -= w.toUint256();
-
-        status.releasedAmount += w.toUint256();
-        status.totalReleased += w.toUint256();
-
-        SafeERC20.safeTransfer(tokenAddr, user, w.toUint256());
     }
 }
