@@ -9,8 +9,6 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import "prb-math/contracts/PRBMathSD59x18.sol";
 
-import "hardhat/console.sol";
-
 contract HVTVault is Ownable {
     using PRBMathSD59x18 for int256;
     using SafeCast for uint256;
@@ -69,7 +67,6 @@ contract HVTVault is Ownable {
         }
 
         // 最后一次存款
-        totalEpochs += (block.number - deposit[deposit.length - 1].blockNo) / BLOCKS_PER_DAY;
         totalAmount += deposit[deposit.length - 1].amount;
         release += getDepositRelease(deposit[deposit.length - 1].blockNo, block.number, totalAmount, totalEpochs);
         totalAmount -= release;
@@ -112,7 +109,7 @@ contract HVTVault is Ownable {
         for (uint256 i = 0; i < epochs; i++) {
             release += startAmount * ratio / wad();
             startAmount = startAmount - startAmount * ratio / wad();
-            ratio *= DECAY;
+            ratio = ratio * DECAY / wad();
         }
 
         return release;
@@ -124,6 +121,7 @@ contract HVTVault is Ownable {
         totalDeposit[user] += amount;
     }
 
+    // 用户取款
     function withdraw(uint256 amount) external {
         uint256 withdraw = withdrawn[msg.sender];
         require(withdraw + amount <= totalReleased(msg.sender));
@@ -133,6 +131,6 @@ contract HVTVault is Ownable {
     }
 
     function wad() internal pure returns (uint256) {
-        return 10 ** 18;
+        return 1e18;
     }
 }
