@@ -30,7 +30,7 @@ contract HVTVault is Ownable {
     mapping(address => Deposit[]) depositRecord;
 
     // 用户已经取走的
-    mapping(address => uint256) withdrawn;
+    mapping(address => uint256) userWithdrawed;
 
     uint256 public constant RATIO = 5e15;
 
@@ -44,7 +44,7 @@ contract HVTVault is Ownable {
 
     // 获取用户已经取走的数量
     function getUserWithrawn(address user) public view returns (uint256) {
-        return withdrawn[user];
+        return userWithdrawed[user];
     }
 
     // 当前已经释放的总量
@@ -82,11 +82,11 @@ contract HVTVault is Ownable {
 
     // 还未释放的数量
     function unReleased(address user) public view returns (uint256) {
-        Deposit[] memory deposit = depositRecord[user];
+        Deposit[] memory userDeposit = depositRecord[user];
         uint256 total = 0;
 
-        for (uint256 i = 0; i < deposit.length; i++) {
-            total += deposit[i].amount;
+        for (uint256 i = 0; i < userDeposit.length; i++) {
+            total += userDeposit[i].amount;
         }
 
         return total - totalReleased(user);
@@ -94,7 +94,7 @@ contract HVTVault is Ownable {
 
     // 已经释放，但是用户还未领取的数量
     function unWithdraw(address user) public view returns (uint256) {
-        return totalReleased(user) - withdrawn[user];
+        return totalReleased(user) - userWithdrawed[user];
     }
 
     // 两笔存款间隔之间可以释放的数量
@@ -119,15 +119,16 @@ contract HVTVault is Ownable {
     function deposit(address user, uint256 amount) external onlyOwner {
         depositRecord[user].push(Deposit(amount, block.number));
         totalDeposit[user] += amount;
+        SafeERC20.safeTransferFrom(tokenAddr, msg.sender, address(this), amount);
     }
 
     // 用户取款
     function withdraw(uint256 amount) external {
-        uint256 withdraw = withdrawn[msg.sender];
-        require(withdraw + amount <= totalReleased(msg.sender));
+        uint256 w = userWithdrawed[msg.sender];
+        require(w + amount <= totalReleased(msg.sender), "HVT: funds not enough");
 
-        withdrawn[msg.sender] += amount;
-        SafeERC20.safeTransferFrom(tokenAddr, address(this), msg.sender, amount);
+        userWithdrawed[msg.sender] += amount;
+        SafeERC20.safeTransfer(tokenAddr, msg.sender, amount);
     }
 
     function wad() internal pure returns (uint256) {

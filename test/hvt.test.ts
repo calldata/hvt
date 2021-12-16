@@ -62,5 +62,35 @@ describe("Hvt", () => {
       const total2 = await hvtContract.totalReleased(deployer.address);
       console.log("total2: ", ethers.utils.formatUnits(total2));
     })
+
+    it("test withdraw", async () => {
+      const [deployer, user] = await ethers.getSigners();
+
+      await tokenContract.approve(hvtContract.address, ethers.BigNumber.from(10).pow(18).mul(1000));
+      await hvtContract.deposit(user.address, ethers.BigNumber.from(10).pow(18).mul(1000));
+
+      await ethers.provider.send("evm_mine", []);
+      await ethers.provider.send("evm_mine", []);
+
+      const t = await hvtContract.totalReleased(user.address);
+      console.log("user.addres: ", user.address);
+      console.log("deployer address: ", deployer.address)
+      console.log("ttt: ", ethers.utils.formatUnits(t));
+
+      const s = await hvtContract.unWithdraw(user.address);
+      console.log("sss: ", ethers.utils.formatUnits(s));
+      expect(s).to.be.eq(t);
+      hvtContract = hvtContract.connect(user);
+      console.log("block number 1: ", await ethers.provider.getBlockNumber())
+      await hvtContract.withdraw(t);
+
+      const s2 = await hvtContract.unWithdraw(user.address);
+      console.log("block number 2: ", await ethers.provider.getBlockNumber())
+
+      console.log("s22222", ethers.utils.formatUnits(s2))
+      const s3 = await tokenContract.balanceOf(user.address)
+      expect(s3).eq(t);
+
+    })
   })
 });
