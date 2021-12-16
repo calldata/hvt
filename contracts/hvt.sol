@@ -49,13 +49,22 @@ contract HVTVault is Ownable {
 
     // 当前已经释放的总量
     function totalReleased(address user) public view returns (uint256) {
-        Deposit[] memory deposit = depositRecord[user];
-        if (deposit.length == 0) {
+        uint256 len = depositRecord[user].length;
+        
+        if (len == 0) {
             return 0;
         }
 
+        Deposit[] memory deposit = new Deposit[](len + 1);
+
+        for (uint i = 0; i < depositRecord[user].length; i++) {
+            deposit[i] = depositRecord[user][i];
+        }
+
+        deposit[len] = Deposit(0, block.number);
+
         uint256 release = 0;
-        uint256 totalEpochs = 1;
+        uint256 totalEpochs = 0;
         uint256 totalAmount = 0;
 
         // 两次存款之间应该释放的总量
@@ -66,18 +75,7 @@ contract HVTVault is Ownable {
             totalAmount -= release;
         }
 
-        // 最后一次存款
-        totalAmount += deposit[deposit.length - 1].amount;
-        release += getDepositRelease(deposit[deposit.length - 1].blockNo, block.number, totalAmount, totalEpochs);
-        totalAmount -= release;
-
-        // 一个释放周期内可领取数量
-        uint256 deltaBlocks = (block.number - deposit[0].blockNo) % BLOCKS_PER_DAY;
-        uint256 d = DECAY.toInt256().powu(totalEpochs - 1).toUint256();
-        uint256 ratio = RATIO * d / wad();
-        uint256 amount = totalAmount * ratio / wad();
-
-        return release + amount / BLOCKS_PER_DAY * deltaBlocks;
+        return release;
     }
 
     // 还未释放的数量
@@ -101,18 +99,33 @@ contract HVTVault is Ownable {
     function getDepositRelease(uint256 startBlock, uint256 endBlock, uint256 startAmount, uint256 totalEpochs) internal pure returns (uint256) {
         uint256 epochs = (endBlock - startBlock) / BLOCKS_PER_DAY;
 
-        uint256 d = DECAY.toInt256().powu(totalEpochs - 1).toUint256();
-        uint256 ratio = RATIO * d / wad();
-        
-        uint256 release = 0;
+        if (epochs > 0) {
+            uint256 d = DECAY.toInt256().powu(totalEpochs - epochs).toUint256();
+            uint256 ratio = RATIO * d / wad();
 
-        for (uint256 i = 0; i < epochs; i++) {
-            release += startAmount * ratio / wad();
-            startAmount = startAmount - startAmount * ratio / wad();
-            ratio = ratio * DECAY / wad();
+            uint256 release = 0;
+            
+            for (uint256 i = 0; i < epochs; i++) {
+                release += startAmount * ratio / wad();
+                startAmount = startAmount - startAmount * ratio / wad();
+                ratio = ratio * DECAY / wad();
+            }
+
+            uint256 remain = (endBlock - startBlock) % BLOCKS_PER_DAY;
+            if (remain > 0) {
+                uint256 lastAmount = startAmount * ratio / BLOCKS_PER_DAY / wad() * remain;
+                release += lastAmount;
+                startAmount -= lastAmount;
+            }
+
+            return release;
+        } else {
+            uint256 diff_block = endBlock - startBlock;
+            uint256 d = DECAY.toInt256().powu(totalEpochs).toUint256();
+            uint256 ratio = RATIO * d / wad();
+            uint256 release = startAmount * ratio / BLOCKS_PER_DAY * diff_block / wad();
+            return release;
         }
-
-        return release;
     }
 
     // 管理员给用户充值

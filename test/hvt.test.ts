@@ -32,11 +32,14 @@ describe("Hvt", () => {
 
       await tokenContract.approve(hvtContract.address, ethers.BigNumber.from(10).pow(18).mul(1000));
       await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(18).mul(1000));
+      console.log("block number 11: ", await ethers.provider.getBlockNumber())
 
-      for (let i = 0; i < 48; i++) {
+      for (let i = 0; i < 40; i++) {
         await ethers.provider.send("evm_mine", []);
       }
   
+      console.log("block number 22: ", await ethers.provider.getBlockNumber())
+
       const total = await hvtContract.totalReleased(deployer.address);
       console.log("total: ", ethers.utils.formatUnits(total));
     })
