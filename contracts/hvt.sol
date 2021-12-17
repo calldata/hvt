@@ -132,7 +132,6 @@ contract HVTVault is Ownable {
     function deposit(address user, uint256 amount) external onlyOwner {
         depositRecord[user].push(Deposit(amount, block.number));
         totalDeposit[user] += amount;
-        SafeERC20.safeTransferFrom(tokenAddr, msg.sender, address(this), amount);
     }
 
     // 用户取款
