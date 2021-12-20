@@ -24,11 +24,11 @@ describe("Hvt", () => {
 
   describe("hvt valut", () => {
     it("test deposit", async () => {
-      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(18).mul(1000));
+      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(8).mul(1000));
     })
 
     it("test deposit", async () => {
-      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(18).mul(1000));
+      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(8).mul(1000));
       console.log("block number 11: ", await ethers.provider.getBlockNumber())
 
       for (let i = 0; i < 40; i++) {
@@ -38,30 +38,32 @@ describe("Hvt", () => {
       console.log("block number 22: ", await ethers.provider.getBlockNumber())
 
       const total = await hvtContract.totalReleased(deployer.address);
-      console.log("total: ", ethers.utils.formatUnits(total));
+      console.log("total: ", ethers.utils.formatUnits(total, 8));
     })
 
     it("test deposit then deposit", async () => {
-      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(18).mul(1000));
+      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(8).mul(1000));
 
       await ethers.provider.send("evm_mine", []);
       await ethers.provider.send("evm_mine", []);
 
       const total1 = await hvtContract.totalReleased(deployer.address);
-      console.log("total1: ", ethers.utils.formatUnits(total1));
+      console.log("total1: ", ethers.utils.formatUnits(total1, 8));
 
-      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(18).mul(1000));
+      await hvtContract.deposit(deployer.address, ethers.BigNumber.from(10).pow(8).mul(1000));
 
       await ethers.provider.send("evm_mine", []);
       await ethers.provider.send("evm_mine", []);
 
       const total2 = await hvtContract.totalReleased(deployer.address);
-      console.log("total2: ", ethers.utils.formatUnits(total2));
+      console.log("total2: ", ethers.utils.formatUnits(total2, 8));
     })
 
     it("test withdraw", async () => {
-      await tokenContract.transfer(hvtContract.address, ethers.BigNumber.from(10).pow(18).mul(2000));
-      await hvtContract.deposit(user.address, ethers.BigNumber.from(10).pow(18).mul(1000));
+      await tokenContract.transfer(hvtContract.address, ethers.BigNumber.from(10).pow(8).mul(3000));
+      const decimal = await tokenContract.decimals()
+      console.log("decimal: ", decimal)
+      await hvtContract.deposit(user.address, ethers.BigNumber.from(10).pow(8).mul(1000));
 
       await ethers.provider.send("evm_mine", []);
       await ethers.provider.send("evm_mine", []);
@@ -69,18 +71,21 @@ describe("Hvt", () => {
       const t = await hvtContract.totalReleased(user.address);
       console.log("user.addres: ", user.address);
       console.log("deployer address: ", deployer.address)
-      console.log("ttt: ", ethers.utils.formatUnits(t));
+      console.log("ttt: ", ethers.utils.formatUnits(t, 8));
 
       const s = await hvtContract.unWithdraw(user.address);
-      console.log("sss: ", ethers.utils.formatUnits(s));
+      console.log("sss: ", ethers.utils.formatUnits(s, 8));
       expect(s).to.be.eq(t);
-      console.log("block number 1: ", await ethers.provider.getBlockNumber())
+      const bal = await tokenContract.balanceOf(hvtContract.address)
+      console.log("bal: ", ethers.utils.formatUnits(bal, 8));
+      console.log("block number 1: ", await ethers.provider.getBlockNumber());
+
       await hvtContract.connect(user).withdraw(t);
 
       const s2 = await hvtContract.unWithdraw(user.address);
       console.log("block number 2: ", await ethers.provider.getBlockNumber())
 
-      console.log("s22222", ethers.utils.formatUnits(s2))
+      console.log("s22222", ethers.utils.formatUnits(s2, 8))
       const s3 = await tokenContract.balanceOf(user.address)
       expect(s3).eq(t);
     })

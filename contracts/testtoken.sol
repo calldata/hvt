@@ -8,4 +8,8 @@ contract TestToken is ERC20, Ownable {
     constructor() ERC20("TestToken", "TT") {
         _mint(msg.sender, 10 ** 9 * 1 ether);
     }
+
+    function decimals() override public pure returns (uint8) {
+        return 8;
+    }
 }
