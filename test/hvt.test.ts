@@ -67,6 +67,10 @@ describe("Hvt", () => {
 
       await ethers.provider.send("evm_mine", []);
       await ethers.provider.send("evm_mine", []);
+      await ethers.provider.send("evm_mine", []);
+      await ethers.provider.send("evm_mine", []);
+      await ethers.provider.send("evm_mine", []);
+      await ethers.provider.send("evm_mine", []);
 
       const t = await hvtContract.totalReleased(user.address);
       console.log("user.addres: ", user.address);
@@ -76,13 +80,22 @@ describe("Hvt", () => {
       const s = await hvtContract.unWithdraw(user.address);
       console.log("sss: ", ethers.utils.formatUnits(s, 8));
       expect(s).to.be.eq(t);
-      const bal = await tokenContract.balanceOf(hvtContract.address)
-      console.log("bal: ", ethers.utils.formatUnits(bal, 8));
+      const bal111 = await tokenContract.balanceOf(hvtContract.address)
+      console.log("bal111: ", ethers.utils.formatUnits(bal111, 8));
       console.log("block number 1: ", await ethers.provider.getBlockNumber());
 
+      const s4 = await hvtContract.connect(user).unWithdraw(user.address);
+      console.log("unWithdraw11: ", ethers.utils.formatUnits(s4, 8))
       await hvtContract.connect(user).withdraw(t);
-
       const s2 = await hvtContract.unWithdraw(user.address);
+      console.log("unWithdraw22: ", ethers.utils.formatUnits(s2, 8));
+
+
+      const bal222 = await tokenContract.balanceOf(hvtContract.address)
+      console.log("bal222: ", ethers.utils.formatUnits(bal222, 8));
+
+
+      // const s2 = await hvtContract.unWithdraw(user.address);
       console.log("block number 2: ", await ethers.provider.getBlockNumber())
 
       console.log("s22222", ethers.utils.formatUnits(s2, 8))
