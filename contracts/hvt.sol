@@ -98,13 +98,12 @@ contract HVTVault is Ownable {
     // 两笔存款间隔之间可以释放的数量
     function getDepositRelease(uint256 startBlock, uint256 endBlock, uint256 startAmount, uint256 totalEpochs) internal pure returns (uint256) {
         uint256 epochs = (endBlock - startBlock) / BLOCKS_PER_DAY;
+        uint256 release = 0;
 
         if (epochs > 0) {
             uint256 d = DECAY.toInt256().powu(totalEpochs - epochs).toUint256();
             uint256 ratio = RATIO * d / wad();
 
-            uint256 release = 0;
-            
             for (uint256 i = 0; i < epochs; i++) {
                 release += startAmount * ratio / wad();
                 startAmount = startAmount - startAmount * ratio / wad();
@@ -115,17 +114,15 @@ contract HVTVault is Ownable {
             if (remain > 0) {
                 uint256 lastAmount = startAmount * ratio / BLOCKS_PER_DAY / wad() * remain;
                 release += lastAmount;
-                startAmount -= lastAmount;
             }
-
-            return release;
         } else {
             uint256 diff_block = endBlock - startBlock;
             uint256 d = DECAY.toInt256().powu(totalEpochs).toUint256();
             uint256 ratio = RATIO * d / wad();
-            uint256 release = startAmount * ratio / BLOCKS_PER_DAY * diff_block / wad();
-            return release;
+            release = startAmount * ratio / BLOCKS_PER_DAY * diff_block / wad();
         }
+
+        return release;
     }
 
     // 管理员给用户充值
